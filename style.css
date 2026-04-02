@@ -388,3 +388,22 @@ tbody tr:hover { background: rgba(255,255,255,.04); }
   .summary-grid { grid-template-columns: 1fr; }
   .gradient { flex-direction: column; align-items: start; }
 }
+.logout-floating {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 9999;
+  border: 1px solid rgba(255,255,255,.14);
+  background: linear-gradient(135deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+  color: #edf2ff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 16px 40px rgba(0,0,0,.25);
+  backdrop-filter: blur(10px);
+}
+
+.logout-floating:hover {
+  filter: brightness(1.08);
+}

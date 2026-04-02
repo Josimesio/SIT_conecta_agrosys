@@ -17,7 +17,7 @@ GTN_PASS = os.getenv("GTN_PASS")
 
 LIDERES_FILTRO = os.getenv(
     "GTN_LIDERES",
-    "Wilson Alves,Walceir Hernandes,Camila Lorena Maciel"
+    "Kelvin Junior,Volnei Pereira,Dalton Skajko Sales,Cezar Augusto,Carmo Silva,Dirceu Ribeiro,Edineia Pilonetto,Jackeline Dallagnol,Kleber Cadamuro,Leila Raber,Luiz Antonio Carrasco Junior,Maiara Boncoski,Luiz Antonio Rodrigues"
 )
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -209,6 +209,8 @@ def tratar_csv_para_dashboard(arquivo_entrada: Path) -> Path:
 
     log(f"✅ Arquivo final gerado: {arquivo_saida}")
     log(f"🕒 Coluna 'Gerado em' preenchida com: {gerado_em}")
+
+    log("⏳ Download concluído e CSV tratado com sucesso. Prosseguindo com envio ao Git...")
 
     return arquivo_saida
 
