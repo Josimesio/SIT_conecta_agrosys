@@ -172,7 +172,7 @@ function renderLeaderboard(rows) {
   const ranking = [...grouped.values()]
     .map(item => ({ ...item, percent: item.total ? Math.round((item.concluded / item.total) * 100) : 0 }))
     .sort((a, b) => b.concluded - a.concluded || b.percent - a.percent || a.lider.localeCompare(b.lider, 'pt-BR'))
-    .slice(0, 8);
+    .slice(0, 20);
 
   els.leaderboard.innerHTML = ranking.map((item, index) => `
     <div class="leader-row">
