@@ -43,7 +43,7 @@ body {
   filter: blur(75px);
   opacity: .28;
   pointer-events: none;
-}
+}0, 8
 .orb-1 { background: #7c5cff; top: -120px; left: -90px; }
 .orb-2 { background: #14d3a6; right: -120px; top: 220px; }
 .app-shell {
