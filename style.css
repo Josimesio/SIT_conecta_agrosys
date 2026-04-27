@@ -376,6 +376,7 @@ tbody tr:hover { background: rgba(255,255,255,.04); }
 .status-concluido { background: rgba(20,211,166,.14); color: #79ffd9; }
 .status-andamento { background: rgba(255,184,77,.14); color: #ffd18c; }
 .status-nao-iniciado { background: rgba(255,107,122,.14); color: #ffacb5; }
+.status-cancelado { background: rgba(152,167,216,.16); color: #d8e0ff; }
 .status-outro { background: rgba(255,255,255,.12); color: #f2f5ff; }
 @media (max-width: 980px) {
   .hero { grid-template-columns: 1fr; }

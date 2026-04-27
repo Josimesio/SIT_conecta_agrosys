@@ -7,6 +7,8 @@ const els = {
   totalConcluidos: document.getElementById('totalConcluidos'),
   totalEmAndamento: document.getElementById('totalEmAndamento'),
   totalNaoIniciado: document.getElementById('totalNaoIniciado'),
+  totalBloqueados: document.getElementById('totalBloqueados'),
+  totalCancelados: document.getElementById('totalCancelados'),
   headlineCallout: document.getElementById('headlineCallout'),
   headlinePill: document.getElementById('headlinePill'),
   leaderboard: document.getElementById('leaderboard'),
@@ -16,7 +18,7 @@ const els = {
 };
 
 const RING_CIRCUMFERENCE = 301.59;
-const AUTO_CSV_NAME = 'dashboard_data/Cenarios_Consolidados_atualizado.csv';
+const AUTO_CSV_NAME = 'output/Cenarios_Consolidados_atualizado.csv';
 const AUTO_REFRESH_INTERVAL_MS = 180000; // 3 minutos
 
 const motivationalMessages = [
@@ -37,24 +39,34 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function tryAutoLoadCsv() {
+  const candidates = [
+    AUTO_CSV_NAME,
+    `./${AUTO_CSV_NAME}`,
+    '/output/Cenarios_Consolidados_atualizado.csv'
+  ];
+
   setGeneratedAt(`Lendo ${AUTO_CSV_NAME}...`);
 
-  try {
-    const response = await fetch(`${AUTO_CSV_NAME}?t=${Date.now()}`, {
-      cache: 'no-store'
-    });
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(`${candidate}?t=${Date.now()}`, {
+        cache: 'no-store'
+      });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+      const text = new TextDecoder('utf-8').decode(buffer);
+      parseCsvText(text);
+      return;
+    } catch (error) {
+      console.warn(`Falha ao carregar CSV em ${candidate}:`, error);
     }
-
-    const buffer = await response.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buffer);
-    parseCsvText(text);
-  } catch (error) {
-    console.warn('Falha no carregamento automático do CSV:', error);
-    setGeneratedAt(`Arquivo processado não encontrado em ${AUTO_CSV_NAME}. Gere o CSV atualizado pelo script Python.`);
   }
+
+  setGeneratedAt(`Arquivo processado não encontrado. Verifique a pasta output e o nome ${AUTO_CSV_NAME}.`);
 }
 
 function parseCsvText(text) {
@@ -126,21 +138,29 @@ function renderDashboard(rows) {
   const total = cleanRows.length;
   const concluded = cleanRows.filter(row => isConcluded(row.statusOriginal)).length;
   const inProgress = cleanRows.filter(row => isInProgress(row.statusOriginal)).length;
+  const blocked = cleanRows.filter(row => isBlocked(row.statusOriginal)).length;
   const notStarted = cleanRows.filter(row => isNotStarted(row.statusOriginal)).length;
+  const cancelled = cleanRows.filter(row => isCancelled(row.statusOriginal)).length;
   const percent = total ? Math.round((concluded / total) * 100) : 0;
 
-  updateSummary(total, concluded, inProgress, notStarted, percent);
+  updateSummary(total, concluded, inProgress, notStarted, blocked, cancelled, percent);
   renderLeaderboard(cleanRows);
-  renderStatusBars(total, concluded, inProgress, notStarted);
+  renderStatusBars(total, concluded, inProgress, notStarted, blocked, cancelled);
   renderAreaBoard(cleanRows);
   renderFocusTable(cleanRows);
 }
 
-function updateSummary(total, concluded, inProgress, notStarted, percent) {
+function updateSummary(total, concluded, inProgress, notStarted, blocked, cancelled, percent) {
   els.totalCenarios.textContent = total.toLocaleString('pt-BR');
   els.totalConcluidos.textContent = concluded.toLocaleString('pt-BR');
   els.totalEmAndamento.textContent = inProgress.toLocaleString('pt-BR');
   els.totalNaoIniciado.textContent = notStarted.toLocaleString('pt-BR');
+  if (els.totalBloqueados) {
+    els.totalBloqueados.textContent = blocked.toLocaleString('pt-BR');
+  }
+  if (els.totalCancelados) {
+    els.totalCancelados.textContent = cancelled.toLocaleString('pt-BR');
+  }
   els.globalPercent.textContent = `${percent}%`;
   els.ringProgress.style.strokeDashoffset = `${RING_CIRCUMFERENCE * (1 - percent / 100)}`;
 
@@ -172,30 +192,69 @@ function renderLeaderboard(rows) {
   const ranking = [...grouped.values()]
     .map(item => ({ ...item, percent: item.total ? Math.round((item.concluded / item.total) * 100) : 0 }))
     .sort((a, b) => b.concluded - a.concluded || b.percent - a.percent || a.lider.localeCompare(b.lider, 'pt-BR'))
-    .slice(0, 20);
+    .slice(0, 21);
 
-  els.leaderboard.innerHTML = ranking.map((item, index) => `
-    <div class="leader-row">
-      <div class="place ${index < 3 ? `top-${index + 1}` : ''}">${index + 1}</div>
-      <div>
-        <div class="leader-name">${escapeHtml(item.lider)}</div>
-        <div class="leader-meta">${item.concluded} concluídos de ${item.total} cenários · ${item.inProgress} em andamento</div>
+  const champion = ranking[0];
+  const chasers = ranking.slice(1);
+
+  const championHtml = champion ? `
+    <div class="leader-spotlight">
+      <div class="leader-spotlight-top">
+        <div>
+          <div class="leader-crown">1º lugar · líder da rodada</div>
+          <h4 class="leader-spotlight-name">${escapeHtml(champion.lider)}</h4>
+          <div class="leader-spotlight-meta">
+            ${champion.concluded} concluídos de ${champion.total} cenários · ${champion.inProgress} em andamento
+          </div>
+        </div>
+        <div class="leader-spotlight-score">
+          <strong>${champion.percent}%</strong>
+          <span>aproveitamento</span>
+        </div>
       </div>
-      <div class="leader-score">
-        <strong>${item.percent}%</strong>
-        <span>aproveitamento</span>
+      <div class="leader-spotlight-track">
+        <div class="leader-spotlight-fill" style="width:${champion.percent}%"></div>
       </div>
     </div>
-  `).join('');
+  ` : '';
+
+  const chasersHtml = chasers.length ? `
+    <div class="leaderboard-chasers">
+      ${chasers.map((item, index) => `
+        <div class="chaser-card ${index === 0 ? 'top-2' : ''} ${index === 1 ? 'top-3' : ''}">
+          <div class="chaser-head">
+            <div>
+              <div class="chaser-place">${index + 2}º</div>
+            </div>
+            <div class="chaser-score">
+              <strong>${item.percent}%</strong>
+              <span>aproveitamento</span>
+            </div>
+          </div>
+          <div class="chaser-name">${escapeHtml(item.lider)}</div>
+          <div class="chaser-meta">${item.concluded} concluídos · ${item.total} cenários · ${item.inProgress} em andamento</div>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+
+  els.leaderboard.innerHTML = `
+    <div class="leaderboard-stage">
+      ${championHtml}
+      ${chasersHtml}
+    </div>
+  `;
 }
 
-function renderStatusBars(total, concluded, inProgress, notStarted) {
-  const other = Math.max(total - concluded - inProgress - notStarted, 0);
+function renderStatusBars(total, concluded, inProgress, notStarted, blocked, cancelled) {
+  const other = Math.max(total - concluded - inProgress - notStarted - blocked - cancelled, 0);
   const statuses = [
     { label: 'Concluído', value: concluded, percent: getPercent(concluded, total), color: 'linear-gradient(90deg, #14d3a6, #7dffd8)' },
     { label: 'Em andamento', value: inProgress, percent: getPercent(inProgress, total), color: 'linear-gradient(90deg, #ffb84d, #ffd88d)' },
-    { label: 'Não iniciado', value: notStarted, percent: getPercent(notStarted, total), color: 'linear-gradient(90deg, #ff6b7a, #ff9daa)' },
-    { label: 'Outros', value: other, percent: getPercent(other, total), color: 'linear-gradient(90deg, #98a7d8, #cad5ff)' }
+    { label: 'Bloqueado', value: blocked, percent: getPercent(blocked, total), color: 'linear-gradient(90deg, #ff4d6d, #ff8fa3)' },
+    { label: 'Não iniciado', value: notStarted, percent: getPercent(notStarted, total), color: 'linear-gradient(90deg, #7c5cff, #b7a6ff)' },
+    { label: 'Cancelado', value: cancelled, percent: getPercent(cancelled, total), color: 'linear-gradient(90deg, #98a7d8, #cad5ff)' },
+    { label: 'Outros', value: other, percent: getPercent(other, total), color: 'linear-gradient(90deg, #8a94a6, #c6ccd8)' }
   ];
 
   els.statusBars.innerHTML = statuses.map(item => `
@@ -253,12 +312,12 @@ function renderAreaBoard(rows) {
 
 function renderFocusTable(rows) {
   const priorityRows = rows
-    .filter(row => !isConcluded(row.statusOriginal))
-    .sort((a, b) => comparePriority(a.prioridade, b.prioridade) || b.execucoes - a.execucoes)
-    .slice(0, 10);
+    .filter(row => isBlocked(row.statusOriginal) || isNotStarted(row.statusOriginal))
+    .sort((a, b) => compareStatusForUnlock(a.statusOriginal, b.statusOriginal) || comparePriority(a.prioridade, b.prioridade) || b.execucoes - a.execucoes || a.cenario.localeCompare(b.cenario, 'pt-BR'))
+    .slice(0, 21);
 
   if (!priorityRows.length) {
-    els.focusTable.innerHTML = '<tr><td colspan="5" class="empty-cell">Nada pendente. Isso aqui ficou bonito.</td></tr>';
+    els.focusTable.innerHTML = '<tr><td colspan="5" class="empty-cell">Sem bloqueados ou não iniciados no momento. A pista limpou.</td></tr>';
     return;
   }
 
@@ -282,9 +341,29 @@ function isInProgress(status) {
   return s.includes('andamento') || s.includes('em execucao') || s.includes('em progresso');
 }
 
+function isBlocked(status) {
+  const s = normalize(status);
+  return s.includes('bloqueado') || s.includes('impedimento') || s.includes('travado');
+}
+
 function isNotStarted(status) {
   const s = normalize(status);
-  return s.includes('nao iniciado');
+  return s.includes('nao iniciado') || s.includes('não iniciado');
+}
+
+function isCancelled(status) {
+  const s = normalize(status);
+  return s.includes('cancelado') || s.includes('cancelada') || s.includes('cancel');
+}
+
+function compareStatusForUnlock(a, b) {
+  const weight = status => {
+    if (isBlocked(status)) return 2;
+    if (isNotStarted(status)) return 1;
+    return 0;
+  };
+
+  return weight(b) - weight(a);
 }
 
 function getPercent(value, total) {
@@ -306,9 +385,11 @@ function statusPill(status) {
   const label = escapeHtml(status || '-');
   let className = 'neutral';
 
-  if (isConcluded(status)) className = 'done';
-  else if (isInProgress(status)) className = 'progress';
-  else if (isNotStarted(status)) className = 'not-started';
+  if (isConcluded(status)) className = 'status-concluido';
+  else if (isInProgress(status)) className = 'status-andamento';
+  else if (isNotStarted(status)) className = 'status-nao-iniciado';
+  else if (isCancelled(status)) className = 'status-cancelado';
+  else className = 'status-outro';
 
   return `<span class="status-pill ${className}">${label}</span>`;
 }
