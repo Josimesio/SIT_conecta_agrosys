@@ -141,7 +141,7 @@ function renderDashboard(rows) {
   const blocked = cleanRows.filter(row => isBlocked(row.statusOriginal)).length;
   const notStarted = cleanRows.filter(row => isNotStarted(row.statusOriginal)).length;
   const cancelled = cleanRows.filter(row => isCancelled(row.statusOriginal)).length;
-  const percent = total ? Math.round((concluded / total) * 100) : 0;
+  const percent = getPercent(concluded, total);
 
   updateSummary(total, concluded, inProgress, notStarted, blocked, cancelled, percent);
   renderLeaderboard(cleanRows);
@@ -161,7 +161,7 @@ function updateSummary(total, concluded, inProgress, notStarted, blocked, cancel
   if (els.totalCancelados) {
     els.totalCancelados.textContent = cancelled.toLocaleString('pt-BR');
   }
-  els.globalPercent.textContent = `${percent}%`;
+  els.globalPercent.textContent = `${formatPercent(percent)}%`;
   els.ringProgress.style.strokeDashoffset = `${RING_CIRCUMFERENCE * (1 - percent / 100)}`;
 
   const currentMessage = [...motivationalMessages].reverse().find(item => percent >= item.threshold) || motivationalMessages[0];
@@ -190,7 +190,7 @@ function renderLeaderboard(rows) {
   });
 
   const ranking = [...grouped.values()]
-    .map(item => ({ ...item, percent: item.total ? Math.round((item.concluded / item.total) * 100) : 0 }))
+    .map(item => ({ ...item, percent: getPercent(item.concluded, item.total) }))
     .sort((a, b) => b.concluded - a.concluded || b.percent - a.percent || a.lider.localeCompare(b.lider, 'pt-BR'))
     .slice(0, 21);
 
@@ -208,7 +208,7 @@ function renderLeaderboard(rows) {
           </div>
         </div>
         <div class="leader-spotlight-score">
-          <strong>${champion.percent}%</strong>
+          <strong>${formatPercent(champion.percent)}%</strong>
           <span>aproveitamento</span>
         </div>
       </div>
@@ -227,7 +227,7 @@ function renderLeaderboard(rows) {
               <div class="chaser-place">${index + 2}º</div>
             </div>
             <div class="chaser-score">
-              <strong>${item.percent}%</strong>
+              <strong>${formatPercent(item.percent)}%</strong>
               <span>aproveitamento</span>
             </div>
           </div>
@@ -261,7 +261,7 @@ function renderStatusBars(total, concluded, inProgress, notStarted, blocked, can
     <div class="status-item">
       <div class="status-head">
         <strong>${item.label}</strong>
-        <span>${item.value} · ${item.percent}%</span>
+        <span>${item.value} · ${formatPercent(item.percent)}%</span>
       </div>
       <div class="status-track">
         <div class="status-fill" style="width:${item.percent}%; background:${item.color}"></div>
@@ -297,7 +297,7 @@ function renderAreaBoard(rows) {
     <div class="area-card">
       <div class="area-top">
         <div class="area-title">${escapeHtml(item.area)}</div>
-        <div class="area-badge">${item.percent}%</div>
+        <div class="area-badge">${formatPercent(item.percent)}%</div>
       </div>
       <div class="status-track" style="margin-top:12px;">
         <div class="status-fill" style="width:${item.percent}%; background: linear-gradient(90deg, #7c5cff, #14d3a6);"></div>
@@ -367,7 +367,14 @@ function compareStatusForUnlock(a, b) {
 }
 
 function getPercent(value, total) {
-  return total ? Math.round((value / total) * 100) : 0;
+  return total ? (value / total) * 100 : 0;
+}
+
+function formatPercent(value) {
+  return Number(value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 function comparePriority(a, b) {
