@@ -4,6 +4,7 @@ const els = {
   ringProgress: document.getElementById('ringProgress'),
   motivationalTag: document.getElementById('motivationalTag'),
   totalCenarios: document.getElementById('totalCenarios'),
+  totalCenariosFormula: document.getElementById('totalCenariosFormula'),
   totalConcluidos: document.getElementById('totalConcluidos'),
   totalEmAndamento: document.getElementById('totalEmAndamento'),
   totalNaoIniciado: document.getElementById('totalNaoIniciado'),
@@ -141,17 +142,23 @@ function renderDashboard(rows) {
   const blocked = cleanRows.filter(row => isBlocked(row.statusOriginal)).length;
   const notStarted = cleanRows.filter(row => isNotStarted(row.statusOriginal)).length;
   const cancelled = cleanRows.filter(row => isCancelled(row.statusOriginal)).length;
-  const percent = getPercent(concluded, total);
+  const cenariosValidos = Math.max(total - blocked - cancelled, 0);
+  const percent = getPercent(concluded, cenariosValidos);
 
-  updateSummary(total, concluded, inProgress, notStarted, blocked, cancelled, percent);
+  updateSummary(total, cenariosValidos, concluded, inProgress, notStarted, blocked, cancelled, percent);
   renderLeaderboard(cleanRows);
   renderStatusBars(total, concluded, inProgress, notStarted, blocked, cancelled);
   renderAreaBoard(cleanRows);
   renderFocusTable(cleanRows);
 }
 
-function updateSummary(total, concluded, inProgress, notStarted, blocked, cancelled, percent) {
-  els.totalCenarios.textContent = total.toLocaleString('pt-BR');
+function updateSummary(total, cenariosValidos, concluded, inProgress, notStarted, blocked, cancelled, percent) {
+  const bloqueadosCancelados = blocked + cancelled;
+
+  els.totalCenarios.textContent = cenariosValidos.toLocaleString('pt-BR');
+  if (els.totalCenariosFormula) {
+    els.totalCenariosFormula.textContent = `Total: ${total.toLocaleString('pt-BR')} - Bloqueados/Cancelados: ${bloqueadosCancelados.toLocaleString('pt-BR')}`;
+  }
   els.totalConcluidos.textContent = concluded.toLocaleString('pt-BR');
   els.totalEmAndamento.textContent = inProgress.toLocaleString('pt-BR');
   els.totalNaoIniciado.textContent = notStarted.toLocaleString('pt-BR');

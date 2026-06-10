@@ -4,9 +4,11 @@ const els = {
   ringProgress: document.getElementById('ringProgress'),
   motivationalTag: document.getElementById('motivationalTag'),
   totalCenarios: document.getElementById('totalCenarios'),
+  totalCenariosFormula: document.getElementById('totalCenariosFormula'),
   totalConcluidos: document.getElementById('totalConcluidos'),
   totalEmAndamento: document.getElementById('totalEmAndamento'),
   totalNaoIniciado: document.getElementById('totalNaoIniciado'),
+  totalBloqueados: document.getElementById('totalBloqueados'),
   totalCancelados: document.getElementById('totalCancelados'),
   headlineCallout: document.getElementById('headlineCallout'),
   headlinePill: document.getElementById('headlinePill'),
@@ -137,22 +139,32 @@ function renderDashboard(rows) {
   const total = cleanRows.length;
   const concluded = cleanRows.filter(row => isConcluded(row.statusOriginal)).length;
   const inProgress = cleanRows.filter(row => isInProgress(row.statusOriginal)).length;
+  const blocked = cleanRows.filter(row => isBlocked(row.statusOriginal)).length;
   const notStarted = cleanRows.filter(row => isNotStarted(row.statusOriginal)).length;
   const cancelled = cleanRows.filter(row => isCancelled(row.statusOriginal)).length;
-  const percent = getPercent(concluded, total);
+  const cenariosValidos = Math.max(total - blocked - cancelled, 0);
+  const percent = getPercent(concluded, cenariosValidos);
 
-  updateSummary(total, concluded, inProgress, notStarted, cancelled, percent);
+  updateSummary(total, cenariosValidos, concluded, inProgress, notStarted, blocked, cancelled, percent);
   renderLeaderboard(cleanRows);
-  renderStatusBars(total, concluded, inProgress, notStarted, cancelled);
+  renderStatusBars(total, concluded, inProgress, notStarted, blocked, cancelled);
   renderAreaBoard(cleanRows);
   renderFocusTable(cleanRows);
 }
 
-function updateSummary(total, concluded, inProgress, notStarted, cancelled, percent) {
-  els.totalCenarios.textContent = total.toLocaleString('pt-BR');
+function updateSummary(total, cenariosValidos, concluded, inProgress, notStarted, blocked, cancelled, percent) {
+  const bloqueadosCancelados = blocked + cancelled;
+
+  els.totalCenarios.textContent = cenariosValidos.toLocaleString('pt-BR');
+  if (els.totalCenariosFormula) {
+    els.totalCenariosFormula.textContent = `Total: ${total.toLocaleString('pt-BR')} - Bloqueados/Cancelados: ${bloqueadosCancelados.toLocaleString('pt-BR')}`;
+  }
   els.totalConcluidos.textContent = concluded.toLocaleString('pt-BR');
   els.totalEmAndamento.textContent = inProgress.toLocaleString('pt-BR');
   els.totalNaoIniciado.textContent = notStarted.toLocaleString('pt-BR');
+  if (els.totalBloqueados) {
+    els.totalBloqueados.textContent = blocked.toLocaleString('pt-BR');
+  }
   if (els.totalCancelados) {
     els.totalCancelados.textContent = cancelled.toLocaleString('pt-BR');
   }
@@ -212,11 +224,12 @@ function renderLeaderboard(rows) {
   `).join('');
 }
 
-function renderStatusBars(total, concluded, inProgress, notStarted, cancelled) {
-  const other = Math.max(total - concluded - inProgress - notStarted - cancelled, 0);
+function renderStatusBars(total, concluded, inProgress, notStarted, blocked, cancelled) {
+  const other = Math.max(total - concluded - inProgress - notStarted - blocked - cancelled, 0);
   const statuses = [
     { label: 'Concluído', value: concluded, percent: getPercent(concluded, total), color: 'linear-gradient(90deg, #14d3a6, #7dffd8)' },
     { label: 'Em andamento', value: inProgress, percent: getPercent(inProgress, total), color: 'linear-gradient(90deg, #ffb84d, #ffd88d)' },
+    { label: 'Bloqueado', value: blocked, percent: getPercent(blocked, total), color: 'linear-gradient(90deg, #ff4d6d, #ff8fa3)' },
     { label: 'Não iniciado', value: notStarted, percent: getPercent(notStarted, total), color: 'linear-gradient(90deg, #ff6b7a, #ff9daa)' },
     { label: 'Cancelado', value: cancelled, percent: getPercent(cancelled, total), color: 'linear-gradient(90deg, #98a7d8, #cad5ff)' },
     { label: 'Outros', value: other, percent: getPercent(other, total), color: 'linear-gradient(90deg, #8a94a6, #c6ccd8)' }
@@ -308,6 +321,11 @@ function isConcluded(status) {
 function isInProgress(status) {
   const s = normalize(status);
   return s.includes('andamento') || s.includes('em execucao') || s.includes('em progresso');
+}
+
+function isBlocked(status) {
+  const s = normalize(status);
+  return s.includes('bloqueado') || s.includes('impedimento') || s.includes('travado');
 }
 
 function isNotStarted(status) {

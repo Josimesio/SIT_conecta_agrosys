@@ -201,6 +201,16 @@ body {
   font-size: 2rem;
   margin: 8px 0 4px;
 }
+
+.mini-formula {
+  display: block;
+  margin-top: 8px;
+  color: #fff5a6 !important;
+  font-size: 0.76rem !important;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
 .mini-label, .mini-card small { color: var(--muted); }
 .gradient {
   margin-top: 18px;
